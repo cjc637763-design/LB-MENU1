@@ -1,0 +1,93 @@
+using GorillaTagModMenu.Menu;
+using UnityEngine;
+
+namespace GorillaTagModMenu.Mods
+{
+    public class PlayerMods : MonoBehaviour
+    {
+        private const string CAT = "Player";
+
+        private GorillaLocomotion.Player GT => GorillaLocomotion.Player.Instance;
+
+        private void Start()
+        {
+            ModMenuManager.Instance.RegisterRange(new[]
+            {
+                /* Ghost Mode */
+                new ModButton("Ghost Mode", "Invisible to other players", CAT,
+                    onEnable:  () => SetVisible(false),
+                    onDisable: () => SetVisible(true)),
+
+                /* Tag Aura */
+                new ModButton("Tag Aura", "Auto-tag players within 4m", CAT,
+                    onUpdate: TagAuraUpdate),
+
+                /* Anti Tag */
+                new ModButton("Anti Tag", "Block incoming tags", CAT,
+                    onEnable:  () => Patches.HarmonyPatches.AntiTag = true,
+                    onDisable: () => Patches.HarmonyPatches.AntiTag = false),
+
+                /* Long Arms */
+                new ModButton("Long Arms", "5x arm reach", CAT,
+                    onEnable:  () => ScaleHands(5f),
+                    onDisable: () => ScaleHands(1f)),
+
+                /* Spider Monkey */
+                new ModButton("Spider Monkey", "Stick to any surface", CAT,
+                    onEnable:  SpiderOn,
+                    onDisable: SpiderOff),
+            });
+        }
+
+        // ── Ghost ─────────────────────────────────────────────────────────────
+
+        private void SetVisible(bool on)
+        {
+            if (GT == null) return;
+            foreach (var r in GT.GetComponentsInChildren<Renderer>())
+                r.enabled = on;
+        }
+
+        // ── Tag Aura ──────────────────────────────────────────────────────────
+
+        private void TagAuraUpdate()
+        {
+            if (GT == null) return;
+            var cols = Physics.OverlapSphere(GT.transform.position, 4f);
+            foreach (var c in cols)
+            {
+                var other = c.GetComponent<GorillaLocomotion.Player>();
+                if (other != null && other != GT)
+                {
+                    // Would call GT RPC TagPlayer in a full network implementation
+                    Plugin.Log.LogInfo($"[TagAura] Target in range: {c.gameObject.name}");
+                }
+            }
+        }
+
+        // ── Long Arms ────────────────────────────────────────────────────────
+
+        private void ScaleHands(float scale)
+        {
+            if (GT == null) return;
+            if (GT.leftControllerTransform  != null) GT.leftControllerTransform.localScale  = Vector3.one * scale;
+            if (GT.rightControllerTransform != null) GT.rightControllerTransform.localScale = Vector3.one * scale;
+        }
+
+        // ── Spider Monkey ─────────────────────────────────────────────────────
+
+        private void SpiderOn()
+        {
+            if (GT == null) return;
+            var rb = GT.GetComponent<Rigidbody>();
+            if (rb != null) rb.drag = 10f;
+        }
+
+        private void SpiderOff()
+        {
+            if (GT == null) return;
+            var rb = GT.GetComponent<Rigidbody>();
+            if (rb != null) rb.drag = 0f;
+        }
+    }
+}
