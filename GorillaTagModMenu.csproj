@@ -1,93 +1,82 @@
-using GorillaTagModMenu.Menu;
-using UnityEngine;
+<Project Sdk="Microsoft.NET.Sdk">
 
-namespace GorillaTagModMenu.Mods
-{
-    public class PlayerMods : MonoBehaviour
-    {
-        private const string CAT = "Player";
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>GorillaTagModMenu</AssemblyName>
+    <RootNamespace>GorillaTagModMenu</RootNamespace>
+    <LangVersion>10</LangVersion>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
 
-        private GorillaLocomotion.Player GT => GorillaLocomotion.Player.Instance;
+  <PropertyGroup>
+    <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Gorilla Tag</GameDir>
+    <BepInExDir>$(GameDir)\BepInEx</BepInExDir>
+    <InteropDir>$(BepInExDir)\interop</InteropDir>
+  </PropertyGroup>
 
-        private void Start()
-        {
-            ModMenuManager.Instance.RegisterRange(new[]
-            {
-                /* Ghost Mode */
-                new ModButton("Ghost Mode", "Invisible to other players", CAT,
-                    onEnable:  () => SetVisible(false),
-                    onDisable: () => SetVisible(true)),
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExDir)\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP">
+      <HintPath>$(BepInExDir)\core\BepInEx.Unity.IL2CPP.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(BepInExDir)\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExDir)\core\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(InteropDir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(InteropDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(InteropDir)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(InteropDir)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(InteropDir)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(InteropDir)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(InteropDir)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Photon.Realtime">
+      <HintPath>$(InteropDir)\Photon.Realtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="PhotonUnityNetworking">
+      <HintPath>$(InteropDir)\PhotonUnityNetworking.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 
-                /* Tag Aura */
-                new ModButton("Tag Aura", "Auto-tag players within 4m", CAT,
-                    onUpdate: TagAuraUpdate),
+  <Target Name="Deploy" AfterTargets="Build">
+    <MakeDir Directories="$(BepInExDir)\plugins\GorillaTagModMenu" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+          DestinationFolder="$(BepInExDir)\plugins\GorillaTagModMenu"
+          SkipUnchangedFiles="true"
+          ContinueOnError="true" />
+  </Target>
 
-                /* Anti Tag */
-                new ModButton("Anti Tag", "Block incoming tags", CAT,
-                    onEnable:  () => Patches.HarmonyPatches.AntiTag = true,
-                    onDisable: () => Patches.HarmonyPatches.AntiTag = false),
-
-                /* Long Arms */
-                new ModButton("Long Arms", "5x arm reach", CAT,
-                    onEnable:  () => ScaleHands(5f),
-                    onDisable: () => ScaleHands(1f)),
-
-                /* Spider Monkey */
-                new ModButton("Spider Monkey", "Stick to any surface", CAT,
-                    onEnable:  SpiderOn,
-                    onDisable: SpiderOff),
-            });
-        }
-
-        // ── Ghost ─────────────────────────────────────────────────────────────
-
-        private void SetVisible(bool on)
-        {
-            if (GT == null) return;
-            foreach (var r in GT.GetComponentsInChildren<Renderer>())
-                r.enabled = on;
-        }
-
-        // ── Tag Aura ──────────────────────────────────────────────────────────
-
-        private void TagAuraUpdate()
-        {
-            if (GT == null) return;
-            var cols = Physics.OverlapSphere(GT.transform.position, 4f);
-            foreach (var c in cols)
-            {
-                var other = c.GetComponent<GorillaLocomotion.Player>();
-                if (other != null && other != GT)
-                {
-                    // Would call GT RPC TagPlayer in a full network implementation
-                    Plugin.Log.LogInfo($"[TagAura] Target in range: {c.gameObject.name}");
-                }
-            }
-        }
-
-        // ── Long Arms ────────────────────────────────────────────────────────
-
-        private void ScaleHands(float scale)
-        {
-            if (GT == null) return;
-            if (GT.leftControllerTransform  != null) GT.leftControllerTransform.localScale  = Vector3.one * scale;
-            if (GT.rightControllerTransform != null) GT.rightControllerTransform.localScale = Vector3.one * scale;
-        }
-
-        // ── Spider Monkey ─────────────────────────────────────────────────────
-
-        private void SpiderOn()
-        {
-            if (GT == null) return;
-            var rb = GT.GetComponent<Rigidbody>();
-            if (rb != null) rb.drag = 10f;
-        }
-
-        private void SpiderOff()
-        {
-            if (GT == null) return;
-            var rb = GT.GetComponent<Rigidbody>();
-            if (rb != null) rb.drag = 0f;
-        }
-    }
-}
+</Project>
